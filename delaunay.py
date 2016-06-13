@@ -1,5 +1,20 @@
+#! /usr/bin/env python3
+# coding=utf-8
+"""
+A basic implementation of delaunay triangulation.
+
+usage:
+    d = DelaunayMap([Point(0, 0, 0), Point(1, 0, 1), Point(0, 1, 1)])
+    d[0.25, 0.25]
+ -> 0.5
+"""
+
 from collections import Counter
 from typing import List, Tuple
+
+__author__ = "Michael Krisper"
+__email__ = "michael.krisper@gmail.com"
+__date__ = "2016-06-14"
 
 
 class Point:
@@ -63,7 +78,7 @@ class Plane:
 
 class DelaunayMap:
     def __init__(self, points: List[Point]):
-        assert len(points) > 3
+        assert len(points) >= 3
 
         min_x, min_y = min(p.X for p in points), min(p.Y for p in points)
         max_x, max_y = max(p.X for p in points), max(p.Y for p in points)
