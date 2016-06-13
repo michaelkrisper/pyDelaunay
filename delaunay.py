@@ -1,4 +1,5 @@
 from typing import List, Tuple
+from math import isclose
 
 
 class Point:
@@ -21,6 +22,11 @@ class Edge:
         self.p1 = p1
 
 
+class Plane:
+    def __init__(self, tr: Triangle):
+        # todo
+        pass
+
 class DelaunayMap:
     def __init__(self, points: List[Point]):
         self.points = points
@@ -28,12 +34,12 @@ class DelaunayMap:
                                  Point(1000, 1000, 0),
                                  Point(1000, 0, 0))
 
-        p = points
-
     def __getitem__(self, xy: Tuple[float, float]):
         x, y = xy
-        return x, y, 0
-
+        for tr in self.triangles:
+            if tr.is_inside(x, y):
+                pl = Plane(tr)
+                return x, y, (pl.W - pl.X * x - pl.Y * y) / pl.Z
 
 if __name__ == '__main__':
     points = [Point(0, 0, 0),
@@ -42,5 +48,7 @@ if __name__ == '__main__':
               Point(1, 1, 1)]
     d = DelaunayMap(points)
 
-    print(d[0.1, 0.1])
+    print(d[0.5, 0.5])
+    assert d[0.5, 0.5] == 0.5
+
     print("finished")
