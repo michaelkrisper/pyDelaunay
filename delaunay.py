@@ -13,6 +13,11 @@ class Point:
         return Point(self.X - other.X, self.Y - other.Y, self.Z - other.Z)
 
 
+class Edge:
+    def __init__(self, p1: Point, p2: Point):
+        self.P2 = p2
+        self.P1 = p1
+
 class Triangle:
     def __init__(self, p1: Point, p2: Point, p3: Point):
         self.P3 = p3
@@ -29,8 +34,7 @@ class Triangle:
         det01 = p0.X * p1.Y - p1.X * p0.Y
         det12 = p1.X * p2.Y - p2.X * p1.Y
         det20 = p2.X * p0.Y - p0.X * p2.Y
-        result = p0Square * det12 + p1Square * det20 + p2Square * det01
-        return result > 0
+        return p0Square * det12 + p1Square * det20 + p2Square * det01 > 0
 
     def shares_vertex(self, tr: 'Triangle'):
         return any({self.P1, self.P2, self.P3} & {tr.P1, tr.P2, tr.P3})
@@ -59,24 +63,16 @@ class Triangle:
         return u >= 0 and v >= 0 and u + v <= 1
 
 
-class Edge:
-    def __init__(self, p1: Point, p2: Point):
-        self.P2 = p2
-        self.P1 = p1
+
 
 class Plane:
     def __init__(self, tr: Triangle):
-        abX = tr.P2.X - tr.P1.X
-        abY = tr.P2.Y - tr.P1.Y
-        abZ = tr.P2.Z - tr.P1.Z
+        ab = tr.P2 - tr.P1
+        ac = tr.P3 - tr.P1
 
-        acX = tr.P3.X - tr.P1.X
-        acY = tr.P3.Y - tr.P1.Y
-        acZ = tr.P3.Z - tr.P1.Z
-
-        self.X = abY * acZ - abZ * acY
-        self.Y = abZ * acX - abX * acZ
-        self.Z = abX * acY - abY * acX
+        self.X = ab.Y * ac.Z - ab.Z * ac.Y
+        self.Y = ab.Z * ac.X - ab.X * ac.Z
+        self.Z = ab.X * ac.Y - ab.Y * ac.X
         self.W = tr.P1.X * self.X + tr.P1.Y * self.Y + tr.P1.Z * self.Z
 
     def __repr__(self):
@@ -87,9 +83,10 @@ class DelaunayMap:
     def __init__(self, points: List[Point]):
         assert len(points) > 3
 
-        supertriangle = Triangle(Point(-1000, -1000, 0),
-                                 Point(1000, 0, 0),
-                                 Point(-1000, 1000, 0))
+        min_x, min_y = min(p.X for p in points), min(p.Y for p in points)
+        max_x, max_y = max(p.X for p in points), max(p.Y for p in points)
+
+        supertriangle = Triangle(Point(min_x - 1, min_y - 1, 0), Point(max_x * 3, 0, 0), Point(min_x - 1, max_y * 3, 0))
         triangles = [supertriangle]
 
         for p in points:
@@ -100,19 +97,12 @@ class DelaunayMap:
             edges = [Edge(x, y)
                      for tr in container_triangles
                      for x, y in ((tr.P1, tr.P2), (tr.P2, tr.P3), (tr.P3, tr.P1))]
-            c = Counter(edges)
-            unique_edges = []
-            for edge, count in c.items():
-                if count == 1:
-                    unique_edges.append(edge)
-
-            new_triangles = [Triangle(e.P1, e.P2, p) for e in unique_edges]
-
-            triangles += new_triangles
+            unique_edges = [edge for edge, count in Counter(edges).items() if count == 1]
+            triangles += [Triangle(e.P1, e.P2, p) for e in unique_edges]
         self.triangles = [tr for tr in triangles
                           if not tr.shares_vertex(supertriangle)]
 
-    def __getitem__(self, xy: Tuple[float, float]):
+    def __getitem__(self, xy: Tuple[float, float]) -> float:
         x, y = xy
         for tr in self.triangles:  # type: Triangle
             if tr.is_inside(x, y):
