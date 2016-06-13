@@ -1,10 +1,9 @@
 import unittest
 from math import isclose
-
 from delaunay import Point, DelaunayMap
 
 
-class MyTestCase(unittest.TestCase):
+class Test(unittest.TestCase):
     def setUp(self):
         points = [Point(0, 0, 0),
                   Point(1, 0, 1),
