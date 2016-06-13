@@ -4,7 +4,7 @@
 A basic implementation of delaunay triangulation.
 
 usage:
-    d = DelaunayMap([Point(0, 0, 0), Point(1, 0, 1), Point(0, 1, 1)])
+    d = DelaunayMap([(0, 0, 0), (1, 0, 1), (0, 1, 1)])
     d[0.25, 0.25]
  -> 0.5
 """
@@ -79,9 +79,9 @@ class Plane:
 
 
 class DelaunayMap:
-    def __init__(self, points: List[Point]):
-        assert len(points) >= 3
-
+    def __init__(self, _points: List[Tuple[float, float, float]]):
+        assert len(_points) >= 3
+        points = [Point(*p) for p in _points]
         min_x, min_y = min(p.X for p in points), min(p.Y for p in points)
         max_x, max_y = max(p.X for p in points), max(p.Y for p in points)
         supertriangle = Triangle(Point(min_x - 1, min_y - 1, 0), Point(max_x * 3, 0, 0), Point(min_x - 1, max_y * 3, 0))
@@ -92,16 +92,16 @@ class DelaunayMap:
             for tr in container_triangles:
                 triangles.remove(tr)
 
-            edges = (Edge(x, y)
+            edges = [Edge(x, y)
                      for tr in container_triangles
-                     for x, y in ((tr.P1, tr.P2), (tr.P2, tr.P3), (tr.P3, tr.P1)))
+                     for x, y in ((tr.P1, tr.P2), (tr.P2, tr.P3), (tr.P3, tr.P1))]
 
-            unique_edges = (edge
+            unique_edges = [edge
                             for edge, count in Counter(edges).items()
-                            if count == 1)
+                            if count == 1]
 
-            triangles += (Triangle(e.P1, e.P2, p)
-                          for e in unique_edges)
+            triangles += [Triangle(e.P1, e.P2, p)
+                          for e in unique_edges]
 
         self.triangles = [tr
                           for tr in triangles
@@ -117,6 +117,6 @@ class DelaunayMap:
 
 if __name__ == '__main__':
     start = time.clock()
-    d = DelaunayMap([Point(0, 0, 0), Point(1, 0, 1), Point(0, 1, 1)])
+    d = DelaunayMap([(0, 0, 0), (1, 0, 1), (0, 1, 1)])
     result = d[0.25, 0.25]
     print(time.clock() - start)
