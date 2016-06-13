@@ -1,7 +1,5 @@
 from collections import Counter
-from math import isclose
 from typing import List, Tuple
-
 
 class Point:
     def __init__(self, x: float, y: float, z: float):
@@ -9,7 +7,7 @@ class Point:
         self.X = x
         self.Y = y
 
-    def __sub__(self, other):
+    def __sub__(self, other: 'Point') -> 'Point':
         return Point(self.X - other.X, self.Y - other.Y, self.Z - other.Z)
 
 
@@ -18,13 +16,14 @@ class Edge:
         self.P2 = p2
         self.P1 = p1
 
+
 class Triangle:
     def __init__(self, p1: Point, p2: Point, p3: Point):
         self.P3 = p3
         self.P2 = p2
         self.P1 = p1
 
-    def contains_in_circumcircle(self, p: Point):
+    def contains_in_circumcircle(self, p: Point) -> bool:
         p0 = self.P1 - p
         p1 = self.P2 - p
         p2 = self.P3 - p
@@ -36,10 +35,10 @@ class Triangle:
         det20 = p2.X * p0.Y - p0.X * p2.Y
         return p0Square * det12 + p1Square * det20 + p2Square * det01 > 0
 
-    def shares_vertex(self, tr: 'Triangle'):
+    def shares_vertex(self, tr: 'Triangle') -> bool:
         return any({self.P1, self.P2, self.P3} & {tr.P1, tr.P2, tr.P3})
 
-    def is_inside(self, x, y):
+    def is_inside(self, x: float, y: float) -> bool:
         if (self.P1.Y < y and self.P2.Y < y and self.P3.Y < y) or (
                             self.P1.X < x and self.P2.X < x and self.P3.X < x) or (
                             self.P1.X > x and self.P2.X > x and self.P3.X > x) or (
@@ -63,8 +62,6 @@ class Triangle:
         return u >= 0 and v >= 0 and u + v <= 1
 
 
-
-
 class Plane:
     def __init__(self, tr: Triangle):
         ab = tr.P2 - tr.P1
@@ -75,7 +72,7 @@ class Plane:
         self.Z = ab.X * ac.Y - ab.Y * ac.X
         self.W = tr.P1.X * self.X + tr.P1.Y * self.Y + tr.P1.Z * self.Z
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "Plane({X},{Y},{Z},{W})".format_map(vars(self))
 
 
@@ -109,18 +106,3 @@ class DelaunayMap:
                 pl = Plane(tr)
                 return (pl.W - pl.X * x - pl.Y * y) / pl.Z
 
-
-if __name__ == '__main__':
-    points = [Point(0, 0, 0),
-              Point(1, 0, 1),
-              Point(0, 1, 1),
-              Point(1, 1, 1)]
-    d = DelaunayMap(points)
-
-    assert isclose(d[0.25, 0.25], 0.5)
-    assert isclose(d[0.5, 0.5], 1)
-    assert isclose(d[0.5, 0], 0.5)
-    assert isclose(d[0, 0.5], 0.5)
-    assert isclose(d[0.125, 0.125], 0.25)
-
-    print("finished")
