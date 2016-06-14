@@ -26,7 +26,7 @@ class Point:
         self.Z = z
 
     def __repr__(self):
-        return "({X},{Y},{Z})".format(**vars(self))
+        return "({X},{Y},{Z})".format_map(vars(self))
 
     def __sub__(self, other: 'Point') -> 'Point':
         return Point(self.X - other.X, self.Y - other.Y, self.Z - other.Z)
@@ -50,7 +50,7 @@ class Edge:
         return (self.P1 == other.P1 and self.P2 == other.P2) or (self.P2 == other.P1 and self.P1 == other.P2)
 
     def __repr__(self):
-        return "({P1}->{P2})".format(**vars(self))
+        return "({P1}->{P2})".format_map(vars(self))
 
 
 class Triangle:
@@ -63,7 +63,7 @@ class Triangle:
         self.P3 = p3
 
     def __repr__(self):
-        return "({P1},{P2},{P3})".format(**vars(self))
+        return "({P1},{P2},{P3})".format_map(vars(self))
 
     def contains_in_circumcircle(self, p: Point) -> bool:
         p0 = self.P1 - p
@@ -102,7 +102,7 @@ class Plane:
         self.W = tr.P1.X * self.X + tr.P1.Y * self.Y + tr.P1.Z * self.Z
 
     def __repr__(self):
-        return "({X},{Y},{Z},{W})".format(**vars(self))
+        return "({X},{Y},{Z},{W})".format_map(vars(self))
 
 
 class DelaunayMap:
