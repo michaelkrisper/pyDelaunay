@@ -3,7 +3,7 @@
 """
 An implementation of delaunay triangulation.
 """
-from collections import Counter
+from collections import Counter, namedtuple
 from math import isclose
 import time
 from typing import Tuple, Iterable, List
@@ -13,12 +13,15 @@ __email__ = "michael.krisper@gmail.com"
 __date__ = "2016-07-12"
 __python_version__ = "3.5"
 
+Point = namedtuple("Point", "X Y Z index")
 
-class Point:
-    def __init__(self, x: float, y: float, z: float):
+
+class Point2:
+    def __init__(self, x: float, y: float, z: float, index: int):
         self.X = float(x)
         self.Y = float(y)
         self.Z = float(z)
+        self.index = index
 
     def __repr__(self):
         return "({X:.7}, {Y:.7}, {Z:.7})".format_map(vars(self))
@@ -57,6 +60,13 @@ class Triangle:
         self.P2 = p2
         self.P3 = p3
 
+        ab = Point(p2.X - p1.X, p2.Y - p1.Y, p2.Z - p1.Z, -1)
+        ac = Point(p3.X - p1.X, p3.Y - p1.Y, p3.Z - p1.Z, -1)
+        self.X = ab.Y * ac.Z - ab.Z * ac.Y
+        self.Y = ab.Z * ac.X - ab.X * ac.Z
+        self.Z = ab.X * ac.Y - ab.Y * ac.X
+        self.W = p1.X * self.X + p1.Y * self.Y + p1.Z * self.Z
+
     def __repr__(self):
         return "<{P1}, {P2}, {P3}>".format_map(vars(self))
 
@@ -90,18 +100,12 @@ class Triangle:
         return (u > 0 or isclose(u, 0)) and (v > 0 or isclose(v, 0)) and (u + v < 1 or isclose(u + v, 1))
 
     def interpolate(self, x: float, y: float) -> float:
-        ab = Point(self.P2.X - self.P1.X, self.P2.Y - self.P1.Y, self.P2.Z - self.P1.Z)
-        ac = Point(self.P3.X - self.P1.X, self.P3.Y - self.P1.Y, self.P3.Z - self.P1.Z)
-        X = ab.Y * ac.Z - ab.Z * ac.Y
-        Y = ab.Z * ac.X - ab.X * ac.Z
-        Z = ab.X * ac.Y - ab.Y * ac.X
-        W = self.P1.X * X + self.P1.Y * Y + self.P1.Z * Z
-        return (W - X * x - Y * y) / Z
+        return (self.W - self.X * x - self.Y * y) / self.Z
 
 
 class DelaunayMap:
     def __init__(self, *_points: Iterable[Tuple[float, float, float]]):
-        points = sorted(list(Point(p[0], p[1], p[2]) for p in _points))
+        points = list(Point(p[0], p[1], p[2], i) for i, p in enumerate(_points))
         if len(points) != len({(p.X, p.Y) for p in points}):
             raise Exception("(X,Y) coordinates of the points must be unique!")
         if len(points) < 3:
@@ -109,15 +113,15 @@ class DelaunayMap:
 
         min_x, min_y = min(p.X for p in points), min(p.Y for p in points)
         max_x, max_y = max(p.X for p in points), max(p.Y for p in points)
-        supertriangle = Triangle(Point(min_x - 1, min_y - 1, 0), Point(max_x * 3, min_y - 1, 0),
-                                 Point(min_x - 1, max_y * 3, 0))
+        supertriangle = Triangle(Point(min_x - 1, min_y - 1, 0, -1), Point(max_x * 3, min_y - 1, 0, -1),
+                                 Point(min_x - 1, max_y * 3, 0, -1))
         triangles = [supertriangle]  # type: List[Triangle]
         point_count = 0
         for p in points:
             point_count += 1
             container_triangles = [tr for tr in triangles if tr.contains_in_circumcircle(p)]  # type: List[Edge]
             edges = []  # type: List[Edge]
-            for tr in container_triangles:
+            for tr in container_triangles:  # type: Triangle
                 triangles.remove(tr)
                 edges += [Edge(tr.P1, tr.P2), Edge(tr.P2, tr.P3), Edge(tr.P3, tr.P1)]
             unique_edges = (edge for edge, count in Counter(edges).items() if count == 1)
@@ -136,14 +140,37 @@ class DelaunayMap:
             if tr.is_inside(x, y):
                 return tr.interpolate(x, y)
 
+    @property
+    def triangles_indizes(self):
+        for tr in self._triangles:  # type: Triangle
+            yield tr.P1.index, tr.P2.index, tr.P3.index
+
 
 if __name__ == '__main__':
     with open("map.csv") as f:
         points = [tuple(float(x) for x in line.strip().split(",")) for line in f.readlines()]
 
+    # random.shuffle(points)
     start = time.clock()
     d = DelaunayMap(*points)
+    end = time.clock()
+    print(end - start)
 
+    start = time.clock()
     for x, y, z in points:
         assert z == d[x, y]
-    print(time.clock() - start)
+    end = time.clock()
+    print(end - start)
+
+    import matplotlib.pyplot as plt
+    import matplotlib.tri as mtri
+    import numpy as np
+
+    arr = np.array(points).astype("d")
+    x, y, _ = arr.transpose()
+    triang = mtri.Triangulation(x, y, list(d.triangles_indizes))
+    xi, yi = np.meshgrid(np.linspace(0, 5, 200), np.linspace(0, 5, 200))
+
+    plt.triplot(triang, 'ko-')
+
+    plt.show()
