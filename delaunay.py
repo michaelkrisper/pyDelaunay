@@ -17,7 +17,17 @@ Point = namedtuple("Point", "X Y Z index")
 
 
 class Point2:
+    """Represents a 3D point."""
     def __init__(self, x: float, y: float, z: float, index: int):
+        """
+        Initializes a Point2 object.
+
+        Args:
+            x: The x-coordinate of the point.
+            y: The y-coordinate of the point.
+            z: The z-coordinate of the point.
+            index: The index of the point.
+        """
         self.X = float(x)
         self.Y = float(y)
         self.Z = float(z)
@@ -36,7 +46,15 @@ class Point2:
         return (self.X, self.Y, self.Z).__lt__((other.X, other.Y, other.Z))
 
 class Edge:
+    """Represents an edge between two points."""
     def __init__(self, p1: Point, p2: Point):
+        """
+        Initializes an Edge object.
+
+        Args:
+            p1: The first point of the edge.
+            p2: The second point of the edge.
+        """
         self.P1 = p1
         self.P2 = p2
 
@@ -51,7 +69,19 @@ class Edge:
 
 
 class Triangle:
+    """Represents a triangle in 3D space."""
     def __init__(self, p1: Point, p2: Point, p3: Point):
+        """
+        Initializes a Triangle object.
+
+        The triangle is defined by three points. The constructor also calculates the normal vector of the triangle,
+        which is used for interpolation.
+
+        Args:
+            p1: The first point of the triangle.
+            p2: The second point of the triangle.
+            p3: The third point of the triangle.
+        """
         if p1.X == p2.X == p3.X or p1.Y == p2.Y == p3.Y:
             raise Exception(
                 "triangle is coplanar --> cannot extrapolated by a plane.\np1:{p1}\np2:{p2}\np3:{p3}".format_map(
@@ -60,6 +90,7 @@ class Triangle:
         self.P2 = p2
         self.P3 = p3
 
+        # Calculate the normal vector of the triangle
         ab = Point(p2.X - p1.X, p2.Y - p1.Y, p2.Z - p1.Z, -1)
         ac = Point(p3.X - p1.X, p3.Y - p1.Y, p3.Z - p1.Z, -1)
         self.X = ab.Y * ac.Z - ab.Z * ac.Y
@@ -71,9 +102,29 @@ class Triangle:
         return "<{P1}, {P2}, {P3}>".format_map(vars(self))
 
     def shares_vertex(self, tr: 'Triangle') -> bool:
+        """
+        Checks if this triangle shares a vertex with another triangle.
+
+        Args:
+            tr: The other triangle.
+
+        Returns:
+            True if the triangles share a vertex, False otherwise.
+        """
         return {self.P1, self.P2, self.P3} & {tr.P1, tr.P2, tr.P3}
 
     def contains_in_circumcircle(self, p: Point) -> bool:
+        """
+        Checks if a point is inside the circumcircle of the triangle.
+
+        This is used in the Delaunay triangulation algorithm to determine which triangles to remove when adding a new point.
+
+        Args:
+            p: The point to check.
+
+        Returns:
+            True if the point is inside the circumcircle, False otherwise.
+        """
         p1X, p1Y = self.P1.X, self.P1.Y
         p2X, p2Y = self.P2.X, self.P2.Y
         p3X, p3Y = self.P3.X, self.P3.Y
@@ -86,6 +137,18 @@ class Triangle:
         return det > 0 and not isclose(d, 0)
 
     def is_inside(self, x: float, y: float) -> bool:
+        """
+        Checks if a 2D point is inside the 2D projection of the triangle.
+
+        This is used to find the triangle that contains a given point for interpolation.
+
+        Args:
+            x: The x-coordinate of the point.
+            y: The y-coordinate of the point.
+
+        Returns:
+            True if the point is inside the triangle, False otherwise.
+        """
         v0X, v0Y = self.P3.X - self.P1.X, self.P3.Y - self.P1.Y
         v1X, v1Y = self.P2.X - self.P1.X, self.P2.Y - self.P1.Y
         v2X, v2Y = x - self.P1.X, y - self.P1.Y
@@ -100,17 +163,41 @@ class Triangle:
         return (u > 0 or isclose(u, 0)) and (v > 0 or isclose(v, 0)) and (u + v < 1 or isclose(u + v, 1))
 
     def interpolate(self, x: float, y: float) -> float:
+        """
+        Interpolates the Z value of a point within the triangle.
+
+        Args:
+            x: The x-coordinate of the point.
+            y: The y-coordinate of the point.
+
+        Returns:
+            The interpolated Z value.
+        """
         return (self.W - self.X * x - self.Y * y) / self.Z
 
 
 class DelaunayMap:
+    """
+    A class that represents a Delaunay triangulation of a set of 3D points.
+
+    The triangulation can be used to interpolate the Z value for any point within the convex hull of the input points.
+    """
     def __init__(self, *_points: Iterable[Tuple[float, float, float]]):
+        """
+        Initializes a DelaunayMap object.
+
+        This constructor implements the Bowyer-Watson algorithm for Delaunay triangulation.
+
+        Args:
+            *_points: A variable number of 3D points. Each point should be a tuple of (x, y, z).
+        """
         points = list(Point(p[0], p[1], p[2], i) for i, p in enumerate(_points))
         if len(points) != len({(p.X, p.Y) for p in points}):
             raise Exception("(X,Y) coordinates of the points must be unique!")
         if len(points) < 3:
             raise Exception("There must be at least 3 points!")
 
+        # Create a supertriangle that contains all the points.
         min_x, min_y = min(p.X for p in points), min(p.Y for p in points)
         max_x, max_y = max(p.X for p in points), max(p.Y for p in points)
         supertriangle = Triangle(Point(min_x - 1, min_y - 1, 0, -1), Point(max_x * 3, min_y - 1, 0, -1),
@@ -119,22 +206,35 @@ class DelaunayMap:
         point_count = 0
         for p in points:
             point_count += 1
+            # Find all triangles whose circumcircle contains the current point.
             container_triangles = [tr for tr in triangles if tr.contains_in_circumcircle(p)]  # type: List[Edge]
             edges = []  # type: List[Edge]
+            # Remove the container triangles and add their edges to a list.
             for tr in container_triangles:  # type: Triangle
                 triangles.remove(tr)
                 edges += [Edge(tr.P1, tr.P2), Edge(tr.P2, tr.P3), Edge(tr.P3, tr.P1)]
+            # Find the unique edges, which form the boundary of the hole.
             unique_edges = (edge for edge, count in Counter(edges).items() if count == 1)
+            # Create new triangles by connecting the current point to the unique edges.
             new_triangles = (Triangle(e.P1, e.P2, p) for e in unique_edges)
             triangles += new_triangles
 
             if len(triangles) != 2 * (point_count + 3) - 2 - 3:
                 raise Exception(
                     "Triangulation invariant violated! Triangle count and point count doesn't fit together.")
-
+        # Remove all triangles that share a vertex with the supertriangle.
         self._triangles = [tr for tr in triangles if not tr.shares_vertex(supertriangle)]  # type: List[Triangle]
 
     def __getitem__(self, xy: Tuple[float, float]) -> float:
+        """
+        Interpolates the Z value for a given (X, Y) coordinate.
+
+        Args:
+            xy: A tuple containing the (X, Y) coordinates.
+
+        Returns:
+            The interpolated Z value.
+        """
         x, y = xy
         for tr in self._triangles:
             if tr.is_inside(x, y):
@@ -142,6 +242,9 @@ class DelaunayMap:
 
     @property
     def triangles_indizes(self):
+        """
+        Returns an iterator over the indices of the points that form the triangles.
+        """
         for tr in self._triangles:  # type: Triangle
             yield tr.P1.index, tr.P2.index, tr.P3.index
 
