@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyDelaunay"
+version = "1.0.0"
+description = "A basic Delaunay triangulation implementation with Z interpolation"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [{ name = "Michael Krisper", email = "michael.krisper@gmail.com" }]
+keywords = ["delaunay", "triangulation", "computational-geometry", "interpolation"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+[project.optional-dependencies]
+plot = ["matplotlib>=3.7"]
+
+[project.urls]
+Homepage = "https://github.com/michaelkrisper/pyDelaunay"
+
+[tool.setuptools]
+py-modules = ["delaunay"]
