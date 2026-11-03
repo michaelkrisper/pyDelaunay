@@ -24,3 +24,9 @@ Homepage = "https://github.com/michaelkrisper/pyDelaunay"
 
 [tool.setuptools]
 py-modules = ["delaunay"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
