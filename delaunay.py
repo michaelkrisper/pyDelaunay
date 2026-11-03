@@ -1,12 +1,11 @@
 #! /usr/bin/env python3
-# coding=utf-8
 """
 An implementation of delaunay triangulation.
 """
+import time
 from collections import Counter, namedtuple
 from math import isclose
-import time
-from typing import Tuple, Iterable, List
+from typing import Iterable, List, Tuple
 
 __author__ = "Michael Krisper"
 __email__ = "michael.krisper@gmail.com"
@@ -117,7 +116,8 @@ class Triangle:
         """
         Checks if a point is inside the circumcircle of the triangle.
 
-        This is used in the Delaunay triangulation algorithm to determine which triangles to remove when adding a new point.
+        This is used in the Delaunay triangulation algorithm to determine which triangles to remove when adding
+        a new point.
 
         Args:
             p: The point to check.
@@ -134,7 +134,9 @@ class Triangle:
         d, e, f = p2X - p4X, p2Y - p4Y, (p2X ** 2 - p4X2) + (p2Y ** 2 - p4Y2)
         g, h, i = p3X - p4X, p3Y - p4Y, (p3X ** 2 - p4X2) + (p3Y ** 2 - p4Y2)
         det = a * (e * i - f * h) + b * (f * g - d * i) + c * (d * h - e * g)
-        return det > 0 and not isclose(d, 0)
+        # The sign of the determinant depends on the orientation of the triangle.
+        orientation = (p2X - p1X) * (p3Y - p1Y) - (p2Y - p1Y) * (p3X - p1X)
+        return det * orientation > 0
 
     def is_inside(self, x: float, y: float) -> bool:
         """
@@ -200,17 +202,19 @@ class DelaunayMap:
         # Create a supertriangle that contains all the points.
         min_x, min_y = min(p.X for p in points), min(p.Y for p in points)
         max_x, max_y = max(p.X for p in points), max(p.Y for p in points)
-        supertriangle = Triangle(Point(min_x - 1, min_y - 1, 0, -1), Point(max_x * 3, min_y - 1, 0, -1),
-                                 Point(min_x - 1, max_y * 3, 0, -1))
-        triangles = [supertriangle]  # type: List[Triangle]
+        # It has to be much larger than the bounding box, otherwise edges of the convex hull get lost.
+        size = max(max_x - min_x, max_y - min_y, 1.0) * 100
+        supertriangle = Triangle(Point(min_x - size, min_y - size, 0, -1), Point(max_x + 3 * size, min_y - size, 0, -1),
+                                 Point(min_x - size, max_y + 3 * size, 0, -1))
+        triangles: List[Triangle] = [supertriangle]
         point_count = 0
         for p in points:
             point_count += 1
             # Find all triangles whose circumcircle contains the current point.
-            container_triangles = [tr for tr in triangles if tr.contains_in_circumcircle(p)]  # type: List[Edge]
-            edges = []  # type: List[Edge]
+            container_triangles = [tr for tr in triangles if tr.contains_in_circumcircle(p)]
+            edges: List[Edge] = []
             # Remove the container triangles and add their edges to a list.
-            for tr in container_triangles:  # type: Triangle
+            for tr in container_triangles:
                 triangles.remove(tr)
                 edges += [Edge(tr.P1, tr.P2), Edge(tr.P2, tr.P3), Edge(tr.P3, tr.P1)]
             # Find the unique edges, which form the boundary of the hole.
@@ -223,7 +227,7 @@ class DelaunayMap:
                 raise Exception(
                     "Triangulation invariant violated! Triangle count and point count doesn't fit together.")
         # Remove all triangles that share a vertex with the supertriangle.
-        self._triangles = [tr for tr in triangles if not tr.shares_vertex(supertriangle)]  # type: List[Triangle]
+        self._triangles: List[Triangle] = [tr for tr in triangles if not tr.shares_vertex(supertriangle)]
 
     def __getitem__(self, xy: Tuple[float, float]) -> float:
         """
@@ -241,29 +245,38 @@ class DelaunayMap:
                 return tr.interpolate(x, y)
 
     @property
-    def triangles_indizes(self):
+    def triangle_indices(self):
         """
         Returns an iterator over the indices of the points that form the triangles.
         """
-        for tr in self._triangles:  # type: Triangle
+        for tr in self._triangles:
             yield tr.P1.index, tr.P2.index, tr.P3.index
+
+    # Backwards-compatible alias of the original (misspelled) name.
+    triangles_indizes = triangle_indices
 
 
 if __name__ == '__main__':
-    with open("map.csv") as f:
-        points = [tuple(float(x) for x in line.strip().split(",")) for line in f.readlines()]
+    import random
+    import sys
 
-    # random.shuffle(points)
-    start = time.clock()
+    if len(sys.argv) > 1:
+        with open(sys.argv[1]) as f:
+            points = [tuple(float(x) for x in line.strip().split(",")) for line in f if line.strip()]
+    else:
+        rng = random.Random(0)
+        points = [(rng.uniform(0, 5), rng.uniform(0, 5), rng.uniform(0, 1)) for _ in range(200)]
+
+    start = time.perf_counter()
     d = DelaunayMap(*points)
-    end = time.clock()
-    print(end - start)
+    end = time.perf_counter()
+    print("triangulation: {:.3f} s".format(end - start))
 
-    start = time.clock()
+    start = time.perf_counter()
     for x, y, z in points:
-        assert z == d[x, y]
-    end = time.clock()
-    print(end - start)
+        assert isclose(z, d[x, y], abs_tol=1e-9)
+    end = time.perf_counter()
+    print("interpolation: {:.3f} s".format(end - start))
 
     import matplotlib.pyplot as plt
     import matplotlib.tri as mtri
@@ -271,8 +284,7 @@ if __name__ == '__main__':
 
     arr = np.array(points).astype("d")
     x, y, _ = arr.transpose()
-    triang = mtri.Triangulation(x, y, list(d.triangles_indizes))
-    xi, yi = np.meshgrid(np.linspace(0, 5, 200), np.linspace(0, 5, 200))
+    triang = mtri.Triangulation(x, y, list(d.triangle_indices))
 
     plt.triplot(triang, 'ko-')
 
