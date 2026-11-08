@@ -12,3 +12,6 @@ venv/
 .DS_Store
 build/
 dist/
+
+# Local Claude notes
+CLAUDE.local.md
